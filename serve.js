@@ -91,7 +91,7 @@ function parseYaml(text) {
 
 const spec = parseYaml(fs.readFileSync(path.join(__dirname, ".do", "app.yaml"), "utf8"));
 const site = spec.static_sites?.[0] ?? {};
-const publicDir = path.join(__dirname, site.output_dir ?? ".");
+const publicDir = path.join(__dirname, site.source_dir ?? ".", site.output_dir ?? ".");
 const errorDocument = site.error_document ?? "404.html";
 // the longest prefix wins, so a rule for one path beats "/"
 const rules = (spec.ingress?.rules ?? [])
