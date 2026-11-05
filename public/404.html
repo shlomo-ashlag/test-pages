@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page not found · Test Pages</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script>
+      // a folder url without the trailing slash may end up here, go to the slash url when it exists
+      (async () => {
+        const { pathname, search, hash } = window.location;
+        if (pathname.endsWith("/") || /\.[^/]*$/.test(pathname)) {
+          return;
+        }
+        try {
+          const response = await fetch(`${pathname}/`, { method: "HEAD", cache: "no-store" });
+          if (response.ok) {
+            window.location.replace(`${pathname}/${search}${hash}`);
+          }
+        } catch {
+          // stay on the 404 page
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/favicon.svg" alt="" />
+          Test Pages
+        </a>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="empty">
+        <span class="eyebrow">404</span>
+        <h1>Page not found</h1>
+        <p>There is no test page at this address.</p>
+        <a class="button" href="/">All tests</a>
+      </section>
+    </main>
+  </body>
+</html>

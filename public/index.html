@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Pages</title>
+    <meta name="description" content="Pages for checking the browser extension by hand." />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/favicon.svg" alt="" />
+          Test Pages
+        </a>
+        <span class="topbar-note">Manual checks for the browser extension</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <span class="eyebrow">Browser extension</span>
+          <h1>Test pages</h1>
+          <p class="lead">
+            Each page sets up one case for checking the extension by hand and tells you what you
+            should see.
+          </p>
+          <ol class="howto">
+            <li>Open a test.</li>
+            <li>Do what its "Before you start" part asks.</li>
+            <li>Go through the cases and compare what you get with the expected result.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="tests-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="tests-title">Tests</h2>
+          </div>
+          <ul class="cards">
+            <li>
+              <a class="card" href="/test-download-pdf/">
+                <div class="card-top">
+                  <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 3v5h5" />
+                      <path d="M12 11v6" />
+                      <path d="m9.5 14.5 2.5 2.5 2.5-2.5" />
+                    </svg>
+                  </span>
+                  <span class="chips">
+                    <span class="chip chip-accent">ABS-5434</span>
+                    <span class="chip">Firefox</span>
+                  </span>
+                </div>
+                <h3>PDF from a script URL</h3>
+                <p>
+                  A PDF sent by a script such as <code>show_temp.pl</code> must be saved with a
+                  .pdf name.
+                </p>
+                <span class="card-go">Open test &rarr;</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <span>Test Pages</span>
+        <span>Static files, no backend.</span>
+      </div>
+    </footer>
+  </body>
+</html>
