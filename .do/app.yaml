@@ -1,0 +1,48 @@
+# DigitalOcean App Platform spec for the test pages site
+# create the app:  doctl apps create --spec .do/app.yaml
+# update the app:  doctl apps update <app id> --spec .do/app.yaml
+# serve.js reads this file too, so the local server answers like the deployed site
+name: test-pages
+static_sites:
+  - name: site
+    environment_slug: html
+    github:
+      repo: shlomo-ashlag/test-pages
+      branch: main
+      deploy_on_push: true
+    output_dir: public
+    error_document: 404.html
+ingress:
+  rules:
+    # test-download-pdf: script-like urls answered by real files, the browser url stays the same.
+    # a static site takes Content-Type from the file extension, so the target file decides it
+    - match:
+        path:
+          prefix: /test-download-pdf/cgi-bin/show_temp.pl
+      component:
+        name: site
+        rewrite: /test-download-pdf/files/sample.pdf
+    - match:
+        path:
+          prefix: /test-download-pdf/documents/6006422
+      component:
+        name: site
+        rewrite: /test-download-pdf/files/sample.pdf
+    - match:
+        path:
+          prefix: /test-download-pdf/cgi-bin/report.php
+      component:
+        name: site
+        rewrite: /test-download-pdf/files/sample.pdf
+    - match:
+        path:
+          prefix: /test-download-pdf/cgi-bin/get.pl
+      component:
+        name: site
+        rewrite: /test-download-pdf/files/sample.bin
+    # everything else is the site itself
+    - match:
+        path:
+          prefix: /
+      component:
+        name: site
