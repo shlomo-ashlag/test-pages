@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF from a script URL · Test Pages</title>
+    <meta name="description" content="Checks that Firefox saves a PDF sent by a script URL with a .pdf name (ABS-5434)." />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/response-check.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/favicon.svg" alt="" />
+          Test Pages
+        </a>
+        <span class="topbar-note">Manual checks for the browser extension</span>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/">All tests</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">PDF from a script URL</span>
+      </nav>
+
+      <section class="page-head">
+        <div class="chips">
+          <span class="chip chip-accent">ABS-5434</span>
+          <span class="chip">Firefox</span>
+          <span class="chip">Downloads</span>
+        </div>
+        <h1>PDF from a script URL</h1>
+        <p class="lead">
+          Some sites send a PDF from a script, for example
+          <code>show_temp.pl?file=report.pdf</code>. With the extension in Firefox such a file was
+          saved as <code>show_temp.pl</code>. After the fix the extension gets the file type from
+          the <code>Content-Type</code> header, like Chrome does, so the file is saved as
+          <code>show_temp.pdf</code>.
+        </p>
+      </section>
+
+      <p class="notice" data-browser-notice="Firefox" hidden>
+        This test is for Firefox. Other browsers name the file themselves, so the result here says
+        nothing about the fix.
+      </p>
+
+      <section class="panel" aria-labelledby="setup-title">
+        <h2 id="setup-title">Before you start</h2>
+        <ol class="steps">
+          <li>Open this page in Firefox with the extension build you want to check.</li>
+          <li>
+            The flag <code>enableInlineFileScanInFirefox</code> must be on. If a PDF opens in a tab
+            instead of downloading, the scan is off.
+          </li>
+          <li>Watch the file names in the Firefox downloads panel (the arrow button in the toolbar).</li>
+          <li>To see the bug itself, do the same on a build without the fix, for example 1.149.14.</li>
+          <li>
+            Every case also checks what the server sends. If a check is red, the site is not set up
+            right and that case proves nothing.
+          </li>
+        </ol>
+      </section>
+
+      <section class="section" aria-labelledby="fixed-title">
+        <div class="section-head">
+          <div>
+            <h2 id="fixed-title">Fixed by ABS-5434</h2>
+            <p class="section-note">The fix changes these names.</p>
+          </div>
+        </div>
+        <div class="cases">
+          <article class="case" data-expect-type="application/pdf" data-expect-disposition="">
+            <div class="case-main">
+              <div class="case-title">
+                <span class="case-num">1</span>
+                <h3>Script URL with a query</h3>
+              </div>
+              <a class="case-link" href="/test-download-pdf/cgi-bin/show_temp.pl?file=6006422-0--14206.pdf&amp;type=application/pdf">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+                <span>cgi-bin/show_temp.pl?file=6006422-0--14206.pdf&amp;type=application/pdf</span>
+              </a>
+              <p class="case-why">
+                This is the case from the ticket. The URL has a query, so <code>.pl</code> is the
+                script that sends the file, not the file type. The name gets <code>.pdf</code> from
+                <code>Content-Type</code>.
+              </p>
+            </div>
+            <dl class="case-facts">
+              <div>
+                <dt>Server sends</dt>
+                <dd><code>Content-Type: application/pdf</code><span class="muted">no Content-Disposition</span></dd>
+              </div>
+              <div>
+                <dt>Expected name</dt>
+                <dd><code class="filename filename-new">show_temp.pdf</code></dd>
+              </div>
+              <div>
+                <dt>Without the fix</dt>
+                <dd><code class="filename filename-old">show_temp.pl</code></dd>
+              </div>
+            </dl>
+            <p class="check" data-check>Checking what the server sends...</p>
+          </article>
+
+          <article class="case" data-expect-type="application/pdf" data-expect-disposition="">
+            <div class="case-main">
+              <div class="case-title">
+                <span class="case-num">2</span>
+                <h3>URL without an extension</h3>
+              </div>
+              <a class="case-link" href="/test-download-pdf/documents/6006422">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+                <span>documents/6006422</span>
+              </a>
+              <p class="case-why">
+                The last part of the URL has no extension, so the name gets <code>.pdf</code> from
+                <code>Content-Type</code>.
+              </p>
+            </div>
+            <dl class="case-facts">
+              <div>
+                <dt>Server sends</dt>
+                <dd><code>Content-Type: application/pdf</code><span class="muted">no Content-Disposition</span></dd>
+              </div>
+              <div>
+                <dt>Expected name</dt>
+                <dd><code class="filename filename-new">6006422.pdf</code></dd>
+              </div>
+              <div>
+                <dt>Without the fix</dt>
+                <dd><code class="filename filename-old">6006422</code><span class="muted">no extension</span></dd>
+              </div>
+            </dl>
+            <p class="check" data-check>Checking what the server sends...</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="same-title">
+        <div class="section-head">
+          <div>
+            <h2 id="same-title">Must stay the same</h2>
+            <p class="section-note">These names are the same before and after the fix.</p>
+          </div>
+        </div>
+        <div class="cases">
+          <article class="case" data-expect-type="application/pdf" data-expect-disposition="">
+            <div class="case-main">
+              <div class="case-title">
+                <span class="case-num">3</span>
+                <h3>Link to a real PDF file</h3>
+              </div>
+              <a class="case-link" href="/test-download-pdf/files/sample.pdf?v=2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+                <span>files/sample.pdf?v=2</span>
+              </a>
+              <p class="case-why">The extension already matches the type, so nothing changes.</p>
+            </div>
+            <dl class="case-facts">
+              <div>
+                <dt>Server sends</dt>
+                <dd><code>Content-Type: application/pdf</code><span class="muted">no Content-Disposition</span></dd>
+              </div>
+              <div>
+                <dt>Expected name</dt>
+                <dd><code class="filename">sample.pdf</code></dd>
+              </div>
+            </dl>
+            <p class="check" data-check>Checking what the server sends...</p>
+          </article>
+
+          <article class="case" data-expect-type="application/pdf" data-expect-disposition="">
+            <div class="case-main">
+              <div class="case-title">
+                <span class="case-num">4</span>
+                <h3>Script URL without a query</h3>
+              </div>
+              <a class="case-link" href="/test-download-pdf/cgi-bin/report.php">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+                <span>cgi-bin/report.php</span>
+              </a>
+              <p class="case-why">
+                Without a query the URL looks like a file name, so the name is kept. Chrome keeps it
+                too.
+              </p>
+            </div>
+            <dl class="case-facts">
+              <div>
+                <dt>Server sends</dt>
+                <dd><code>Content-Type: application/pdf</code><span class="muted">no Content-Disposition</span></dd>
+              </div>
+              <div>
+                <dt>Expected name</dt>
+                <dd><code class="filename">report.php</code></dd>
+              </div>
+            </dl>
+            <p class="check" data-check>Checking what the server sends...</p>
+          </article>
+
+          <article class="case" data-expect-type="application/octet-stream" data-expect-disposition="">
+            <div class="case-main">
+              <div class="case-title">
+                <span class="case-num">5</span>
+                <h3>Unknown file type</h3>
+              </div>
+              <a class="case-link" href="/test-download-pdf/cgi-bin/get.pl?id=1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+                <span>cgi-bin/get.pl?id=1</span>
+              </a>
+              <p class="case-why">
+                <code>application/octet-stream</code> just means "some bytes" and says nothing
+                about the type, so the name is kept.
+              </p>
+            </div>
+            <dl class="case-facts">
+              <div>
+                <dt>Server sends</dt>
+                <dd><code>Content-Type: application/octet-stream</code><span class="muted">no Content-Disposition</span></dd>
+              </div>
+              <div>
+                <dt>Expected name</dt>
+                <dd><code class="filename">get.pl</code></dd>
+              </div>
+            </dl>
+            <p class="check" data-check>Checking what the server sends...</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <a href="/">All tests</a>
+        <span>Static files, no backend.</span>
+      </div>
+    </footer>
+  </body>
+</html>
