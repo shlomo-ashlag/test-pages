@@ -12,7 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>Proxy access · Test Pages</title>
-    <meta name="description" content="Shows and changes the addresses that may open the work apps through the QA proxy." />
+    <meta name="description" content="Shows and changes who may open the work apps through the QA proxy, and from which addresses." />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/site.css" />
     <script src="https://accounts.google.com/gsi/client" async></script>
@@ -44,9 +44,10 @@
         </div>
         <h1>Proxy access</h1>
         <p class="lead">
-          The work apps open through the QA proxy only from the addresses that an access level
-          lets in. This page shows the addresses of each access level and lets you change them.
-          It talks to Google straight from your browser, with your own admin account.
+          The work apps open through the QA proxy for the users of one organizational unit, and
+          only from the addresses that an access level lets in. This page shows the addresses
+          and the users and lets you change both. It talks to Google straight from your browser,
+          with your own admin account.
         </p>
       </section>
 
@@ -55,8 +56,8 @@
       <section class="panel" data-signed-out aria-labelledby="sign-in-title">
         <h2 id="sign-in-title">Sign in</h2>
         <p class="panel-text">
-          Use a Google Workspace account that may manage the access levels. Google asks for the
-          permissions the page needs, leave every box ticked.
+          Use a Google Workspace account that may manage the access levels and the users. Google
+          asks for the permissions the page needs, leave every box ticked.
         </p>
         <button class="button" type="button" data-sign-in>Sign in with Google Workspace</button>
         <p class="status" data-status="auth" role="status"></p>
@@ -94,6 +95,35 @@
               <button class="button" type="submit">Add address</button>
             </form>
             <p class="status" data-status="level" role="status"></p>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="users-title">
+          <div class="section-head">
+            <div>
+              <h2 id="users-title">Users</h2>
+              <p class="section-note">
+                The access levels are assigned to the unit <strong data-unit-name></strong> in the
+                Admin console and act on every user in it. Moving a user to another unit changes
+                all the settings the unit gives, not only the access levels.
+              </p>
+            </div>
+            <button class="button button-quiet button-small" type="button" data-refresh="users">Refresh</button>
+          </div>
+          <div class="panel">
+            <div class="field">
+              <label for="org-unit">Organizational unit</label>
+              <select id="org-unit" data-unit-select></select>
+            </div>
+            <ul class="rows" data-users-list hidden></ul>
+            <form class="add" data-user-form novalidate>
+              <div class="field">
+                <label for="user-email">User email</label>
+                <input id="user-email" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" data-user-input />
+              </div>
+              <button class="button" type="submit">Move to this unit</button>
+            </form>
+            <p class="status" data-status="users" role="status"></p>
           </div>
         </section>
 

@@ -1,6 +1,6 @@
 // proxy access tool
-// shows which addresses the access levels let in and, when a group is set, who is in the google
-// group, and changes both
+// shows which addresses the access levels let in and which users are in the organizational unit
+// the levels act on, and changes both. when a group is set, it does the same for the group members
 // everything runs in the browser: google sign-in gives an access token, the token stays in memory
 // and goes only to the two google apis below
 (() => {
@@ -16,16 +16,24 @@
     groupEmail: "",
     // number of the access policy, the page lists the access levels of this policy
     policyId: "78929297567",
-    // the "User email" field starts with this email
+    // path of the organizational unit the access levels are assigned to in the admin console.
+    // the page cannot read that assignment from google, so it is written here
+    orgUnitPath: "/Users",
+    // the "User email" fields start with this email
     defaultUserEmail: "john@pp-testing.com",
   };
 
-  // the access levels need the wide cloud scope, google has no narrower one for them
+  // the access levels need the wide cloud scope, google has no narrower one for them.
+  // moving a user to another unit needs the scope that manages users
   const scopes = [
     "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/admin.directory.user",
+    "https://www.googleapis.com/auth/admin.directory.orgunit.readonly",
     ...(config.groupEmail ? ["https://www.googleapis.com/auth/admin.directory.group.member"] : []),
   ];
-  const membersUrl = `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(config.groupEmail)}/members`;
+  const directoryApi = "https://admin.googleapis.com/admin/directory/v1";
+  const membersUrl = `${directoryApi}/groups/${encodeURIComponent(config.groupEmail)}/members`;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const accessApi = "https://accesscontextmanager.googleapis.com/v1";
   const levelsUrl = `${accessApi}/accessPolicies/${encodeURIComponent(config.policyId)}/accessLevels`;
 
@@ -47,11 +55,18 @@
     // level itself as google sent it
     levelName: "",
     level: undefined,
+    // paths of all organizational units and all users of the organization, undefined until loaded
+    units: undefined,
+    users: undefined,
+    // the unit whose users the page shows
+    unitPath: config.orgUnitPath,
+    // the unit chosen in the row that moves a user
+    moveTo: "",
     // the group members as google sent them, undefined until loaded
     members: undefined,
-    // key of the row that asks "remove?" now
+    // key of the row that asks "remove?" or "move where?" now
     asking: "",
-    busy: { level: false, members: false },
+    busy: { level: false, users: false, members: false },
   };
   // grows on every sign-out, an answer that comes for an old session is dropped
   let session = 0;
@@ -69,6 +84,11 @@
     addressInput: document.querySelector("[data-address-input]"),
     conditionField: document.querySelector("[data-condition-field]"),
     conditionSelect: document.querySelector("[data-condition-select]"),
+    unitName: document.querySelector("[data-unit-name]"),
+    unitSelect: document.querySelector("[data-unit-select]"),
+    usersList: document.querySelector("[data-users-list]"),
+    userForm: document.querySelector("[data-user-form]"),
+    userInput: document.querySelector("[data-user-input]"),
     membersSection: document.querySelector("[data-members-section]"),
     groupName: document.querySelector("[data-group-name]"),
     membersList: document.querySelector("[data-members-list]"),
@@ -79,7 +99,7 @@
   const sleep = time => new Promise(resolve => setTimeout(resolve, time));
   const failure = (message, status) => Object.assign(new Error(message), { status });
 
-  // name is "auth", "level" or "members", kind is "ok", "bad" or "" for a neutral note
+  // name is "auth", "level", "users" or "members", kind is "ok", "bad" or "" for a neutral note
   function showStatus(name, kind, text) {
     const output = document.querySelector(`[data-status="${name}"]`);
     output.className = kind ? `status is-${kind}` : "status";
@@ -187,6 +207,7 @@
     state.token = response.access_token;
     render();
     void loadLevel();
+    void loadUsers();
     if (config.groupEmail) {
       void loadMembers();
     }
@@ -212,10 +233,13 @@
     state.token = "";
     state.levels = undefined;
     state.level = undefined;
+    state.units = undefined;
+    state.users = undefined;
     state.members = undefined;
     state.asking = "";
-    state.busy = { level: false, members: false };
+    state.busy = { level: false, users: false, members: false };
     showStatus("level", "", "");
+    showStatus("users", "", "");
     showStatus("members", "", "");
     showStatus("auth", message ? "bad" : "", message);
     render();
@@ -334,6 +358,75 @@
   const removeAddress = (index, subnet) =>
     changeAddresses(index, list => list.filter(item => item !== subnet), `${subnet} is removed.`);
 
+  // users and organizational units
+
+  // a unit holds its own users and the users of the units under it, the settings of a unit act
+  // on all of them
+  const isUnder = (path, unit) => unit === "/" || path === unit || path.startsWith(`${unit}/`);
+  const usersUnder = unit => (state.users ?? []).filter(user => isUnder(user.orgUnitPath ?? "/", unit));
+
+  // all users are read at once and sorted into units on the page: the search of google by unit
+  // is slow to notice a move
+  const loadUsers = () =>
+    work("users", "Loading the users...", async () => {
+      const data = await callGoogle(`${directoryApi}/customer/my_customer/orgunits?type=all`);
+      state.units = ["/", ...(data.organizationUnits ?? []).map(unit => unit.orgUnitPath)].sort();
+      if (!state.units.includes(state.unitPath)) {
+        state.unitPath = "/";
+      }
+      const fields = "nextPageToken,users(id,primaryEmail,name/fullName,orgUnitPath,suspended,isAdmin)";
+      state.users = await fetchAll(
+        `${directoryApi}/users?customer=my_customer&maxResults=500&orderBy=email&fields=${encodeURIComponent(fields)}`,
+        "users",
+      );
+    });
+
+  function chooseUnit() {
+    state.unitPath = page.unitSelect.value;
+    state.asking = "";
+    showStatus("users", "", "");
+    render();
+  }
+
+  // moves a user to a unit and puts the answer of google into the list on the page
+  function moveUser(email, path) {
+    return work("users", `Moving ${email} to ${path}...`, async () => {
+      const moved = await callGoogle(`${directoryApi}/users/${encodeURIComponent(email)}`, {
+        method: "PATCH",
+        body: { orgUnitPath: path },
+      });
+      const user = { ...moved, primaryEmail: moved.primaryEmail ?? email, orgUnitPath: moved.orgUnitPath ?? path };
+      const others = (state.users ?? []).filter(item => item.id !== user.id && item.primaryEmail !== user.primaryEmail);
+      state.users = [...others, user];
+      return `${user.primaryEmail} is now in ${user.orgUnitPath}. It can take a few minutes before Google applies the settings of the unit.`;
+    });
+  }
+
+  function moveFromRow(user) {
+    if (!state.moveTo) {
+      showStatus("users", "bad", "Choose the unit to move the user to.");
+      return;
+    }
+    void moveUser(user.primaryEmail, state.moveTo);
+  }
+
+  // the form under the list moves a user into the unit the page shows
+  async function addUser() {
+    const email = page.userInput.value.trim();
+    if (!emailPattern.test(email)) {
+      showStatus("users", "bad", "Enter an email like name@example.com.");
+      return;
+    }
+    const present = (state.users ?? []).find(user => user.primaryEmail?.toLowerCase() === email.toLowerCase());
+    if (present && present.orgUnitPath === state.unitPath) {
+      showStatus("users", "ok", `${email} is already in ${state.unitPath}.`);
+      return;
+    }
+    if (await moveUser(email, state.unitPath)) {
+      page.userInput.value = "";
+    }
+  }
+
   // group members
 
   const fetchMembers = () => fetchAll(`${membersUrl}?maxResults=200`, "members");
@@ -347,7 +440,7 @@
 
   function addMember() {
     const email = page.memberInput.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!emailPattern.test(email)) {
       showStatus("members", "bad", "Enter an email like name@example.com.");
       return;
     }
@@ -403,7 +496,7 @@
   function ask(key) {
     state.asking = key;
     render();
-    document.querySelector(".row.is-asking button")?.focus();
+    document.querySelector(".row.is-asking button, .row.is-choosing select")?.focus();
   }
 
   // one line of a list: the value and a remove button that asks once more before it acts
@@ -506,6 +599,80 @@
     document.querySelector('[data-refresh="level"]').disabled = busy;
   }
 
+  const unitLabel = path => (path === "/" ? "/ (the whole organization)" : path);
+
+  // one user: the email, and a move button that opens the choice of the unit
+  function makeUserRow(user, busy) {
+    const key = `user:${user.id}`;
+    const row = make("li", "row");
+    const main = make("div", "row-main");
+    main.append(make("span", "row-value", user.primaryEmail));
+    if (user.name?.fullName) {
+      main.append(make("span", "muted", user.name.fullName));
+    }
+    // a user of a unit under the shown one is marked with the path of that unit
+    const marks = [user.isAdmin && "admin", user.suspended && "suspended", user.orgUnitPath !== state.unitPath && user.orgUnitPath];
+    for (const mark of marks.filter(Boolean)) {
+      main.append(make("span", "chip", mark));
+    }
+
+    const actions = make("div", "row-actions");
+    if (state.asking === key) {
+      row.classList.add("is-choosing");
+      const select = make("select", "row-select");
+      select.setAttribute("aria-label", `Unit to move ${user.primaryEmail} to`);
+      select.append(
+        new Option("Move to...", ""),
+        ...(state.units ?? []).filter(path => path !== user.orgUnitPath).map(path => new Option(unitLabel(path), path)),
+      );
+      select.value = state.moveTo;
+      select.disabled = busy;
+      // the choice is kept in the state, so a redraw of the page does not lose it
+      select.addEventListener("change", () => {
+        state.moveTo = select.value;
+      });
+      actions.append(
+        select,
+        makeButton("Move", "", busy, () => moveFromRow(user)),
+        makeButton("Cancel", "button-quiet", busy, () => ask("")),
+      );
+    } else {
+      actions.append(
+        makeButton("Move", "button-quiet", busy, () => {
+          state.moveTo = "";
+          ask(key);
+        }),
+      );
+    }
+    row.append(main, actions);
+    return row;
+  }
+
+  function renderUsers() {
+    const busy = state.busy.users;
+    const users = usersUnder(state.unitPath).sort((first, second) => first.primaryEmail.localeCompare(second.primaryEmail));
+    page.unitName.textContent = config.orgUnitPath;
+    // before the units are loaded the select shows the unit from the config alone
+    page.unitSelect.replaceChildren(
+      ...(state.units ?? [state.unitPath]).map(
+        path => new Option(state.users ? `${unitLabel(path)} · ${usersUnder(path).length}` : unitLabel(path), path),
+      ),
+    );
+    page.unitSelect.value = state.unitPath;
+    page.unitSelect.disabled = busy;
+    page.usersList.replaceChildren();
+    page.usersList.hidden = !state.users;
+
+    if (!users.length) {
+      page.usersList.append(make("li", "rows-empty", "No users in this unit."));
+    }
+    for (const user of users) {
+      page.usersList.append(makeUserRow(user, busy));
+    }
+    lock(page.userForm, busy);
+    document.querySelector('[data-refresh="users"]').disabled = busy;
+  }
+
   function renderMembers() {
     const busy = state.busy.members;
     const members = [...(state.members ?? [])].sort((first, second) => memberLabel(first).localeCompare(memberLabel(second)));
@@ -534,13 +701,14 @@
     const signedIn = Boolean(state.token);
     page.signedOut.hidden = signedIn;
     page.signedIn.hidden = !signedIn;
-    // without a group in the config the page is about the access levels only
+    // without a group in the config the page has no part about the group
     page.membersSection.hidden = !config.groupEmail;
     renderLevel();
+    renderUsers();
     renderMembers();
   }
 
-  const loaders = { level: loadLevel, members: loadMembers };
+  const loaders = { level: loadLevel, users: loadUsers, members: loadMembers };
   for (const button of document.querySelectorAll("[data-refresh]")) {
     button.addEventListener("click", () => void loaders[button.dataset.refresh]());
   }
@@ -550,6 +718,11 @@
   page.addressForm.addEventListener("submit", event => {
     event.preventDefault();
     void addAddress();
+  });
+  page.unitSelect.addEventListener("change", chooseUnit);
+  page.userForm.addEventListener("submit", event => {
+    event.preventDefault();
+    void addUser();
   });
   page.memberForm.addEventListener("submit", event => {
     event.preventDefault();
@@ -562,6 +735,7 @@
     page.setup.hidden = false;
     page.signIn.disabled = true;
   }
+  page.userInput.value = config.defaultUserEmail;
   page.memberInput.value = config.defaultUserEmail;
   render();
 })();

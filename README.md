@@ -12,7 +12,7 @@ Static pages for the QA team: test pages for checking the browser extension by h
 
 | Page | What it does |
 | --- | --- |
-| `/tool-proxy-access/` | Shows and changes which addresses may open the work apps through the QA proxy: the addresses in the access levels and, when a group is set, the members of a Google group. |
+| `/tool-proxy-access/` | Shows and changes who may open the work apps through the QA proxy and from which addresses: the addresses in the access levels, the users of the organizational units and, when a group is set, the members of a Google group. |
 
 ## Run locally
 
@@ -36,11 +36,11 @@ A tool is added the same way: the folder is `public/tool-<name>/`, and its card 
 
 ## Set up the proxy access tool
 
-The tool has no backend. The person who uses it signs in with Google in the browser, and the browser calls the Access Context Manager API with that sign-in, and the Admin SDK when a group is set.
+The tool has no backend. The person who uses it signs in with Google in the browser, and the browser calls the Access Context Manager API (access levels) and the Admin SDK (users, units, group) with that sign-in.
 
 In the Google Cloud console, in one project of your organization (now it is the project **QA Tools**):
 
-1. Enable **Access Context Manager API**, and **Admin SDK API** for the group.
+1. Enable **Access Context Manager API** and **Admin SDK API**.
 2. Set the OAuth consent screen to **Internal**, so only accounts of your organization can sign in.
 3. Create an OAuth client ID of the type **Web application**. In **Authorized JavaScript origins** add the site address, for example `https://<app>.ondigitalocean.app`, and `http://localhost:8080` for the local server. An origin has no path and no slash at the end. Redirect URIs are not needed.
 
@@ -49,8 +49,9 @@ Then fill in `config` at the top of `public/tool-proxy-access/proxy-access.js`:
 | Value | Where it comes from |
 | --- | --- |
 | `clientId` | The client ID from step 3. |
-| `groupEmail` | The email of the Google group that opens the work apps. Leave it empty when there is no such group: the page then shows the access levels only. |
+| `groupEmail` | The email of the Google group that opens the work apps. Leave it empty when there is no such group: the page then has no part about the group. |
 | `policyId` | The number that `gcloud access-context-manager policies list --organization=<organization id>` shows. The page lists the access levels of this policy, and you choose one there. |
+| `orgUnitPath` | The path of the organizational unit the access levels are assigned to: Admin console > Security > Context-Aware Access > Assign access levels. The page cannot read that assignment, it only opens the user list on this unit. |
 
 The account that signs in needs the Access Context Manager Admin role (`roles/accesscontextmanager.policyAdmin`) on the organization in Google Cloud. A Google Workspace super admin does not have it until it is given:
 
@@ -58,12 +59,13 @@ The account that signs in needs the Access Context Manager Admin role (`roles/ac
 gcloud organizations add-iam-policy-binding <organization id> --member="user:<email>" --role="roles/accesscontextmanager.policyAdmin"
 ```
 
-With a group the account also needs the Groups Admin role in Google Workspace.
+In Google Workspace the account needs a role that may move users between units (super admin or User Management Admin), and the Groups Admin role when a group is set.
 
 Keep in mind:
 
 - The values in `config` are not secrets, but they are public with the site.
-- The Google token allows everything the admin may do in Google Cloud. It stays in the memory of the page and goes only to Google.
+- Moving a user to another unit changes every setting the unit gives the user, not only the access levels.
+- The Google token allows everything the admin may do in Google Cloud and with the users of Google Workspace. It stays in the memory of the page and goes only to Google.
 - Google trusts the whole site address, not one page. Any page of this site could ask for the same sign-in, so do not add scripts from other sites to any page here.
 
 ## URLs that answer with another file

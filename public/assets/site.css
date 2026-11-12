@@ -822,6 +822,26 @@ code {
   background: var(--bad-soft);
 }
 
+.row.is-choosing {
+  background: var(--accent-soft);
+}
+
+.field + .rows {
+  margin-top: 16px;
+}
+
+.row-select {
+  height: 32px;
+  max-width: 240px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
 .row-main {
   display: flex;
   flex-wrap: wrap;
@@ -833,7 +853,7 @@ code {
 
 .row-actions {
   display: flex;
-  flex: none;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
