@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Test Pages</title>
-    <meta name="description" content="Pages for checking the browser extension by hand." />
+    <meta name="description" content="Pages for checking the browser extension by hand, and tools for the QA team." />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/site.css" />
   </head>
@@ -15,7 +15,7 @@
           <img class="brand-mark" src="/assets/favicon.svg" alt="" />
           Test Pages
         </a>
-        <span class="topbar-note">Manual checks for the browser extension</span>
+        <span class="topbar-note">Manual tests and QA tools</span>
       </div>
     </header>
 
@@ -25,8 +25,8 @@
           <span class="eyebrow">Browser extension</span>
           <h1>Test pages</h1>
           <p class="lead">
-            Each page sets up one case for checking the extension by hand and tells you what you
-            should see.
+            Each test page sets up one case for checking the extension by hand and tells you what
+            you should see. Below the tests there are tools for the QA team.
           </p>
           <ol class="howto">
             <li>Open a test.</li>
@@ -64,6 +64,41 @@
                   .pdf name.
                 </p>
                 <span class="card-go">Open test &rarr;</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="tools-title">
+        <div class="wrap">
+          <div class="section-head">
+            <div>
+              <h2 id="tools-title">Tools</h2>
+              <p class="section-note">Helpers for the QA team. They are not tests.</p>
+            </div>
+          </div>
+          <ul class="cards">
+            <li>
+              <a class="card" href="/tool-proxy-access/">
+                <div class="card-top">
+                  <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 3 5 6v5c0 4.5 2.9 8.3 7 10 4.1-1.7 7-5.5 7-10V6z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                  </span>
+                  <span class="chips">
+                    <span class="chip chip-accent">Google Workspace</span>
+                    <span class="chip">Admins</span>
+                  </span>
+                </div>
+                <h3>Proxy access</h3>
+                <p>
+                  See and change who may open the work apps through the QA proxy: the group
+                  members and the allowed addresses.
+                </p>
+                <span class="card-go">Open tool &rarr;</span>
               </a>
             </li>
           </ul>
