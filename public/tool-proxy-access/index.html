@@ -37,17 +37,9 @@
       </nav>
 
       <section class="page-head">
-        <div class="chips">
-          <span class="chip chip-accent">Tool</span>
-          <span class="chip">Google Workspace</span>
-          <span class="chip">Admins</span>
-        </div>
         <h1>Proxy access</h1>
         <p class="lead">
-          The work apps open through the QA proxy for the users of one organizational unit, and
-          only from the addresses that an access level lets in. This page shows the addresses
-          and the users and lets you change both. It talks to Google straight from your browser,
-          with your own admin account.
+          Who may open the work apps through the QA proxy, which apps, and from which addresses.
         </p>
       </section>
 
@@ -56,100 +48,70 @@
       <section class="panel" data-signed-out aria-labelledby="sign-in-title">
         <h2 id="sign-in-title">Sign in</h2>
         <p class="panel-text">
-          Use a Google Workspace account that may manage the access levels and the users. Google
-          asks for the permissions the page needs, leave every box ticked.
+          Use your Google Workspace admin account and leave every box ticked. The page talks to
+          Google straight from your browser.
         </p>
         <button class="button" type="button" data-sign-in>Sign in with Google Workspace</button>
         <p class="status" data-status="auth" role="status"></p>
       </section>
 
       <div data-signed-in hidden>
-        <div class="panel session">
-          <p>You are signed in to Google. The sign-in lasts about an hour.</p>
-          <button class="button button-quiet button-small" type="button" data-sign-out>Sign out</button>
+        <div class="toolbar">
+          <span class="hint">Signed in to Google for about an hour.</span>
+          <span class="toolbar-actions">
+            <button class="button button-quiet button-small" type="button" data-refresh>Refresh</button>
+            <button class="button button-quiet button-small" type="button" data-sign-out>Sign out</button>
+          </span>
         </div>
 
-        <section class="section" aria-labelledby="level-title">
-          <div class="section-head">
-            <div>
-              <h2 id="level-title">Proxy addresses</h2>
-              <p class="section-note">Requests from these addresses pass the chosen access level.</p>
-            </div>
-            <button class="button button-quiet button-small" type="button" data-refresh="level">Refresh</button>
-          </div>
-          <div class="panel">
-            <div class="field">
-              <label for="access-level">Access level</label>
-              <select id="access-level" data-level-select></select>
-            </div>
-            <div class="level-list" data-level-list></div>
-            <form class="add" data-address-form novalidate hidden>
-              <div class="field">
-                <label for="proxy-ip">Proxy IP</label>
-                <input id="proxy-ip" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="203.0.113.10" data-address-input />
+        <div class="panel board">
+          <section class="board-part" aria-labelledby="who-title">
+            <h2 class="board-label" id="who-title">Who</h2>
+            <div class="board-body">
+              <div class="inline-field">
+                <label for="org-unit">Users of the unit</label>
+                <select id="org-unit" data-unit-select></select>
+                <span class="hint" data-unit-note></span>
               </div>
-              <div class="field field-narrow" data-condition-field hidden>
-                <label for="proxy-condition">Add to</label>
-                <select id="proxy-condition" data-condition-select></select>
-              </div>
-              <button class="button" type="submit">Add address</button>
-            </form>
-            <p class="status" data-status="level" role="status"></p>
-          </div>
-        </section>
+              <ul class="rows" data-users-list hidden></ul>
+              <form class="mini-add" data-user-form novalidate>
+                <input type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" aria-label="Email of a user to add to this unit" data-user-input />
+                <button class="button button-small" type="submit">Add to unit</button>
+                <span class="hint">A unit change gives the user all the settings of the new unit.</span>
+              </form>
+              <p class="status" data-status="users" role="status"></p>
+            </div>
+          </section>
 
-        <section class="section" aria-labelledby="users-title">
-          <div class="section-head">
-            <div>
-              <h2 id="users-title">Users</h2>
-              <p class="section-note">
-                The access levels are assigned to the unit <strong data-unit-name></strong> in the
-                Admin console and act on every user in it, nothing has to be done for them.
-                Change a unit only to put a user under the access levels or to take one out: it
-                changes all the settings the unit gives, not only the access levels.
-              </p>
+          <section class="board-part" aria-labelledby="apps-title" data-apps-part>
+            <h2 class="board-label" id="apps-title">Which apps</h2>
+            <div class="board-body">
+              <ul class="tags" data-apps-list></ul>
+              <p class="hint" data-apps-note></p>
             </div>
-            <button class="button button-quiet button-small" type="button" data-refresh="users">Refresh</button>
-          </div>
-          <div class="panel">
-            <div class="field">
-              <label for="org-unit">Organizational unit</label>
-              <select id="org-unit" data-unit-select></select>
-            </div>
-            <ul class="rows" data-users-list hidden></ul>
-            <form class="add" data-user-form novalidate>
-              <div class="field">
-                <label for="user-email">Add another user to this unit</label>
-                <input id="user-email" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" data-user-input />
-              </div>
-              <button class="button" type="submit">Add to this unit</button>
-            </form>
-            <p class="status" data-status="users" role="status"></p>
-          </div>
-        </section>
+          </section>
 
-        <section class="section" aria-labelledby="members-title" data-members-section hidden>
-          <div class="section-head">
-            <div>
-              <h2 id="members-title">Group members</h2>
-              <p class="section-note">
-                Members of the group <strong data-group-name></strong> may open the work apps.
-              </p>
+          <section class="board-part" aria-labelledby="where-title">
+            <h2 class="board-label" id="where-title">From where</h2>
+            <div class="board-body">
+              <div class="levels" data-level-list></div>
+              <p class="status" data-status="level" role="status"></p>
             </div>
-            <button class="button button-quiet button-small" type="button" data-refresh="members">Refresh</button>
-          </div>
-          <div class="panel">
-            <ul class="rows" data-members-list hidden></ul>
-            <form class="add" data-member-form novalidate>
-              <div class="field">
-                <label for="member-email">User email</label>
-                <input id="member-email" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" data-member-input />
-              </div>
-              <button class="button" type="submit">Add member</button>
-            </form>
-            <p class="status" data-status="members" role="status"></p>
-          </div>
-        </section>
+          </section>
+
+          <section class="board-part" aria-labelledby="group-title" data-members-part hidden>
+            <h2 class="board-label" id="group-title">Group</h2>
+            <div class="board-body">
+              <p class="hint">Members of the group <strong data-group-name></strong>.</p>
+              <ul class="rows" data-members-list hidden></ul>
+              <form class="mini-add" data-member-form novalidate>
+                <input type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" aria-label="Email of a user to add to the group" data-member-input />
+                <button class="button button-small" type="submit">Add member</button>
+              </form>
+              <p class="status" data-status="members" role="status"></p>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
 

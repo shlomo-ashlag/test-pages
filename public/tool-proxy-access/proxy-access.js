@@ -1,24 +1,29 @@
 // proxy access tool
-// shows which addresses the access levels let in and which users are in the organizational unit
-// the levels act on, and changes both. when a group is set, it does the same for the group members
+// one board that answers: who may open the work apps through the qa proxy, which apps, and from
+// which addresses. the users of the unit and the addresses of the access levels can be changed
+// here, the apps are listed from the config
 // everything runs in the browser: google sign-in gives an access token, the token stays in memory
-// and goes only to the two google apis below
+// and goes only to the google apis below
 (() => {
   "use strict";
 
-  // fill these in before the first use, the README tells where each one comes from
-  // none of them is a secret: the page is public, and so are they
+  // none of these is a secret: the page is public, and so are they. the README tells where
+  // each one comes from
   const config = {
     // oauth client id of the type "Web application"
     clientId: "556854096886-7v3li8qdv6qt2duv9h9n1o89ddp186oe.apps.googleusercontent.com",
-    // email of the google group that opens the work apps. leave it empty when there is no such
-    // group: the page then shows the access levels only and does not ask for the group permission
-    groupEmail: "",
-    // number of the access policy, the page lists the access levels of this policy
+    // number of the access policy, the page shows all the access levels of this policy
     policyId: "78929297567",
-    // path of the organizational unit the access levels are assigned to in the admin console.
-    // the page cannot read that assignment from google, so it is written here
+    // google gives no api to read where the access levels are assigned, so the next three values
+    // are copied by hand from: admin console > security > context-aware access > assign access levels
+    // path of the organizational unit the access levels are assigned to
     orgUnitPath: "/Users",
+    // the apps they are assigned to for that unit
+    apps: ["Calendar", "Drive and Docs", "FileCloud"],
+    // the day the two values above were last compared with the admin console
+    assignmentCheckedOn: "2026-11-12",
+    // email of a google group to manage too. empty: the page has no part about a group
+    groupEmail: "",
   };
 
   // the access levels need the wide cloud scope, google has no narrower one for them.
@@ -31,11 +36,11 @@
   ];
   const directoryApi = "https://admin.googleapis.com/admin/directory/v1";
   const membersUrl = `${directoryApi}/groups/${encodeURIComponent(config.groupEmail)}/members`;
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const accessApi = "https://accesscontextmanager.googleapis.com/v1";
   const levelsUrl = `${accessApi}/accessPolicies/${encodeURIComponent(config.policyId)}/accessLevels`;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // what a condition of the level may check besides the address
+  // what a condition of a level may check besides the address
   const otherChecks = {
     devicePolicy: "the device",
     regions: "the country",
@@ -47,12 +52,8 @@
   const state = {
     // google access token, it lives in this variable only and is gone when the page is closed
     token: "",
-    // the access levels of the policy, undefined until loaded
+    // the access levels of the policy as google sent them, undefined until loaded
     levels: undefined,
-    // the level chosen on the page: its full name "accessPolicies/1/accessLevels/name", and the
-    // level itself as google sent it
-    levelName: "",
-    level: undefined,
     // paths of all organizational units and all users of the organization, undefined until loaded
     units: undefined,
     users: undefined,
@@ -62,7 +63,10 @@
     moveTo: "",
     // the group members as google sent them, undefined until loaded
     members: undefined,
-    // key of the row that asks "remove?" or "move where?" now
+    // what is typed into the "add ip" fields, by level and condition: the fields are drawn again
+    // on every change and must not lose the text
+    drafts: {},
+    // key of the row or tag that asks "remove?" or "move where?" now
     asking: "",
     busy: { level: false, users: false, members: false },
   };
@@ -76,18 +80,17 @@
     signedIn: document.querySelector("[data-signed-in]"),
     signIn: document.querySelector("[data-sign-in]"),
     signOut: document.querySelector("[data-sign-out]"),
-    levelSelect: document.querySelector("[data-level-select]"),
-    levelList: document.querySelector("[data-level-list]"),
-    addressForm: document.querySelector("[data-address-form]"),
-    addressInput: document.querySelector("[data-address-input]"),
-    conditionField: document.querySelector("[data-condition-field]"),
-    conditionSelect: document.querySelector("[data-condition-select]"),
-    unitName: document.querySelector("[data-unit-name]"),
+    refresh: document.querySelector("[data-refresh]"),
     unitSelect: document.querySelector("[data-unit-select]"),
+    unitNote: document.querySelector("[data-unit-note]"),
     usersList: document.querySelector("[data-users-list]"),
     userForm: document.querySelector("[data-user-form]"),
     userInput: document.querySelector("[data-user-input]"),
-    membersSection: document.querySelector("[data-members-section]"),
+    appsPart: document.querySelector("[data-apps-part]"),
+    appsList: document.querySelector("[data-apps-list]"),
+    appsNote: document.querySelector("[data-apps-note]"),
+    levelList: document.querySelector("[data-level-list]"),
+    membersPart: document.querySelector("[data-members-part]"),
     groupName: document.querySelector("[data-group-name]"),
     membersList: document.querySelector("[data-members-list]"),
     memberForm: document.querySelector("[data-member-form]"),
@@ -144,17 +147,23 @@
     return items;
   }
 
-  // runs one action of a section: locks its buttons, shows the progress, then the result or the
-  // reason it failed. answers true when the action went through
-  async function work(section, progress, task) {
-    if (state.busy[section]) {
+  // runs one action of a part of the board: locks its controls, shows the progress, then the
+  // result or the reason it failed. answers true when the action went through
+  async function work(part, progress, task) {
+    if (state.busy[part]) {
       return false;
     }
     const startedIn = session;
-    state.busy[section] = true;
+    state.busy[part] = true;
+    // an open "remove?" may sit in another part, so everything is drawn again when there was one
+    const wasAsking = state.asking;
     state.asking = "";
-    render();
-    showStatus(section, "", progress);
+    if (wasAsking) {
+      render();
+    } else {
+      painters[part]();
+    }
+    showStatus(part, "", progress);
 
     let result;
     try {
@@ -165,13 +174,14 @@
     if (startedIn !== session) {
       return false;
     }
-    state.busy[section] = false;
+    state.busy[part] = false;
     if (result.status === 401) {
       endSession("Google no longer accepts this sign-in, it lasts about an hour. Sign in again.");
       return false;
     }
-    render();
-    showStatus(section, result.text ? result.kind : "", result.text ?? "");
+    // only this part is drawn again, so typing in another part is not interrupted
+    painters[part]();
+    showStatus(part, result.text ? result.kind : "", result.text ?? "");
     return result.kind === "ok";
   }
 
@@ -204,11 +214,7 @@
     }
     state.token = response.access_token;
     render();
-    void loadLevel();
-    void loadUsers();
-    if (config.groupEmail) {
-      void loadMembers();
-    }
+    loadAll();
   }
 
   function onSignInError(error) {
@@ -230,10 +236,10 @@
     session++;
     state.token = "";
     state.levels = undefined;
-    state.level = undefined;
     state.units = undefined;
     state.users = undefined;
     state.members = undefined;
+    state.drafts = {};
     state.asking = "";
     state.busy = { level: false, users: false, members: false };
     showStatus("level", "", "");
@@ -243,34 +249,36 @@
     render();
   }
 
-  // access level
+  function loadAll() {
+    void loadLevels();
+    void loadUsers();
+    if (config.groupEmail) {
+      void loadMembers();
+    }
+  }
 
-  const levelUrl = () => `${accessApi}/${state.levelName}`;
+  // access levels
+
   const levelLabel = level => level.title || level.name.split("/").pop();
+  // a /32 is one address, it is shown without the suffix
+  const addressLabel = subnet => (subnet.endsWith("/32") ? subnet.slice(0, -3) : subnet);
 
-  // reads the list of levels, and the chosen level again when there is one
-  const loadLevel = () =>
+  // json of a value with the keys in a fixed order: google may send the same level with its
+  // fields in another order, and that is not a change
+  const canon = value =>
+    JSON.stringify(value, (key, item) =>
+      item && typeof item === "object" && !Array.isArray(item)
+        ? Object.fromEntries(Object.entries(item).sort(([first], [second]) => first.localeCompare(second)))
+        : item,
+    );
+
+  const loadLevels = () =>
     work("level", "Loading the access levels...", async () => {
       state.levels = await fetchAll(`${levelsUrl}?pageSize=100`, "accessLevels");
-      if (!state.levels.some(level => level.name === state.levelName)) {
-        state.levelName = "";
-      }
-      state.level = state.levelName ? await callGoogle(levelUrl()) : undefined;
     });
 
-  // nothing is chosen at the start: the levels may belong to different environments, so the
-  // admin picks the one to look at
-  function chooseLevel() {
-    state.levelName = page.levelSelect.value;
-    state.level = undefined;
-    if (!state.levelName) {
-      showStatus("level", "", "");
-      render();
-      return;
-    }
-    void work("level", "Loading the access level...", async () => {
-      state.level = await callGoogle(levelUrl());
-    });
+  function putLevel(level) {
+    state.levels = (state.levels ?? []).map(item => (item.name === level.name ? level : item));
   }
 
   // the access level api answers with a long-running operation, the change is real only when
@@ -289,15 +297,15 @@
     }
   }
 
-  // changes the addresses of one condition. the api replaces the whole condition list, so the
-  // level is read again first and everything else in it goes back as it was
-  function changeAddresses(index, change, doneText) {
-    const url = levelUrl();
-    return work("level", "Saving. Google needs a few seconds to apply the change...", async () => {
+  // changes the addresses of one condition of a level. the api replaces the whole condition
+  // list, so the level is read again first and everything else in it goes back as it was
+  function changeAddresses(level, index, change, doneText) {
+    const url = `${accessApi}/${level.name}`;
+    return work("level", `Saving ${levelLabel(level)}. Google needs a few seconds to apply the change...`, async () => {
       const fresh = await callGoogle(url);
-      if (JSON.stringify(fresh.basic) !== JSON.stringify(state.level.basic)) {
-        state.level = fresh;
-        throw failure("The access level was changed somewhere else after this page loaded it. The list is up to date now, check it and repeat.");
+      if (canon(fresh.basic) !== canon(level.basic)) {
+        putLevel(fresh);
+        throw failure(`${levelLabel(level)} was changed somewhere else after this page loaded it. The page shows the new state now, check it and repeat.`);
       }
       const conditions = fresh.basic.conditions.map((condition, at) =>
         at === index ? { ...condition, ipSubnetworks: change(condition.ipSubnetworks ?? []) } : condition,
@@ -307,16 +315,16 @@
         body: { basic: { conditions } },
       });
       await waitFor(operation);
-      state.level = await callGoogle(url);
+      putLevel(await callGoogle(url));
       return doneText;
     });
   }
 
-  // the reason an address cannot go to the level, "" when it can
+  // the reason an address cannot go to a level, "" when it can
   function addressProblem(address) {
     const parts = address.split(".");
     if (parts.length !== 4 || !parts.every(part => /^(0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255)) {
-      return "Enter an IPv4 address like 203.0.113.10: four numbers from 0 to 255.";
+      return "is not an IPv4 address like 203.0.113.10: four numbers from 0 to 255.";
     }
     const [first, second] = parts.map(Number);
     const isPrivate =
@@ -326,35 +334,40 @@
       (first === 169 && second === 254) ||
       (first === 172 && second >= 16 && second <= 31) ||
       (first === 192 && second === 168);
-    return isPrivate ? "This is a private address. An access level takes public addresses only, enter the address the proxy has on the internet." : "";
+    return isPrivate ? "is a private address. An access level takes public addresses only, enter the address the proxy has on the internet." : "";
   }
 
-  async function addAddress() {
-    const address = page.addressInput.value.trim();
-    const index = Number(page.conditionSelect.value) || 0;
-    const problem = addressProblem(address);
-    if (problem) {
-      showStatus("level", "bad", problem);
+  // the field takes one address or several, split by spaces or commas, and saves them in one go
+  async function addAddresses(level, index, draftKey) {
+    const typed = [...new Set((state.drafts[draftKey] ?? "").split(/[\s,;]+/).filter(Boolean).map(addressLabel))];
+    if (!typed.length) {
+      showStatus("level", "bad", "Enter the address of the proxy, like 203.0.113.10. Several addresses go with spaces between them.");
       return;
     }
-    const subnet = `${address}/32`;
-    const present = state.level.basic.conditions[index].ipSubnetworks ?? [];
-    if (present.includes(subnet) || present.includes(address)) {
-      showStatus("level", "ok", `${address} is already in the list.`);
+    for (const address of typed) {
+      const problem = addressProblem(address);
+      if (problem) {
+        showStatus("level", "bad", `${address} ${problem}`);
+        return;
+      }
+    }
+    const present = (level.basic.conditions[index].ipSubnetworks ?? []).map(addressLabel);
+    const added = typed.filter(address => !present.includes(address));
+    if (!added.length) {
+      showStatus("level", "ok", `${typed.join(", ")}: already in ${levelLabel(level)}.`);
       return;
     }
-    const added = await changeAddresses(
+    const saved = await changeAddresses(
+      level,
       index,
-      list => [...list, subnet],
-      `${subnet} is added. It can take a few minutes before Google lets this address in.`,
+      list => [...list, ...added.map(address => `${address}/32`)],
+      `${added.join(", ")}: added to ${levelLabel(level)}. It can take a few minutes before Google lets a new address in.`,
     );
-    if (added) {
-      page.addressInput.value = "";
+    if (saved) {
+      delete state.drafts[draftKey];
+      renderLevels();
     }
   }
-
-  const removeAddress = (index, subnet) =>
-    changeAddresses(index, list => list.filter(item => item !== subnet), `${subnet} is removed.`);
 
   // users and organizational units
 
@@ -494,107 +507,119 @@
   function ask(key) {
     state.asking = key;
     render();
-    document.querySelector(".row.is-asking button, .row.is-choosing select")?.focus();
+    document.querySelector(".is-asking button, .is-choosing select")?.focus();
   }
 
-  // one line of a list: the value and a remove button that asks once more before it acts
-  function makeRow(key, content, busy, onRemove, onAsk = () => ask(key)) {
-    const row = make("li", "row");
-    const main = make("div", "row-main");
-    main.append(...content);
-    const actions = make("div", "row-actions");
+  // one address of a level: the address and a cross that asks once more before it removes
+  function makeAddressTag(level, index, subnet, onlyOne, busy) {
+    const key = `address:${level.name}:${index}:${subnet}`;
+    const label = addressLabel(subnet);
+    const tag = make("li", "tag");
+    tag.append(make("code", "", label));
     if (state.asking === key) {
-      row.classList.add("is-asking");
-      actions.append(
-        makeButton("Yes, remove", "button-danger", busy, onRemove),
-        makeButton("Cancel", "button-quiet", busy, () => ask("")),
+      tag.classList.add("is-asking");
+      tag.append(
+        makeButton("Remove", "button-danger", busy, () => {
+          void changeAddresses(level, index, list => list.filter(item => item !== subnet), `${label}: removed from ${levelLabel(level)}.`);
+        }),
+        makeButton("Keep", "button-quiet", busy, () => ask("")),
       );
-    } else {
-      actions.append(makeButton("Remove", "button-quiet", busy, onAsk));
+      return tag;
     }
-    row.append(main, actions);
-    return row;
+    const cross = make("button", "tag-x", "×");
+    cross.type = "button";
+    cross.disabled = busy;
+    cross.setAttribute("aria-label", `Remove ${label} from ${levelLabel(level)}`);
+    // a condition left without addresses would stop checking the address at all
+    cross.addEventListener("click", () => {
+      if (onlyOne) {
+        showStatus("level", "bad", `${label} is the only address of ${levelLabel(level)}. Add the new address first, then remove this one.`);
+      } else {
+        ask(key);
+      }
+    });
+    tag.append(cross);
+    return tag;
   }
 
-  function lock(form, busy) {
-    for (const control of form.elements) {
-      control.disabled = busy;
-    }
-  }
-
-  function makeCondition(condition, index, several, busy) {
-    const group = make("div", "group");
+  // one condition of a level: a line of its addresses with a field that adds more
+  function makeCondition(level, condition, index, several, busy) {
+    const line = make("div", "level-line");
     const subnets = condition.ipSubnetworks ?? [];
     const extra = Object.keys(otherChecks)
       .filter(name => condition[name] !== undefined)
       .map(name => otherChecks[name]);
-    if (several) {
-      group.append(make("h3", "group-title", `Condition ${index + 1}`));
-    }
-    if (condition.negate) {
-      group.append(make("p", "group-note", "This condition is turned around: it matches the requests that do not fit it."));
-    }
-    if (extra.length) {
-      group.append(make("p", "group-note", `Besides the address it also checks ${extra.join(", ")}.`));
+    const notes = [
+      several && `Condition ${index + 1}.`,
+      condition.negate && "Turned around: it matches the requests that do not fit it.",
+      extra.length && `Besides the address it also checks ${extra.join(", ")}.`,
+      !subnets.length && "No addresses, so the address is not checked.",
+    ].filter(Boolean);
+    if (notes.length) {
+      line.append(make("p", "hint", notes.join(" ")));
     }
 
-    const list = make("ul", "rows");
-    if (!subnets.length) {
-      list.append(make("li", "rows-empty", "No addresses. This condition does not look at the address."));
-    }
+    const tags = make("ul", "tags");
     for (const subnet of subnets) {
-      // a condition left without addresses would stop checking the address at all
-      const refuse = () =>
-        showStatus("level", "bad", "This is the only address of the condition. Add the new address first, then remove this one.");
-      list.append(
-        makeRow(
-          `address:${index}:${subnet}`,
-          [make("code", "", subnet)],
-          busy,
-          () => void removeAddress(index, subnet),
-          subnets.length === 1 ? refuse : undefined,
-        ),
-      );
+      tags.append(makeAddressTag(level, index, subnet, subnets.length === 1, busy));
     }
-    group.append(list);
-    return group;
-  }
 
-  function renderLevel() {
-    const busy = state.busy.level;
-    const level = state.level;
-    const conditions = level?.basic?.conditions ?? [];
-    const several = conditions.length > 1;
-    const levels = [...(state.levels ?? [])].sort((first, second) => levelLabel(first).localeCompare(levelLabel(second)));
-    page.levelSelect.replaceChildren(
-      new Option(levels.length ? "Choose an access level" : "No access levels", ""),
-      ...levels.map(item => new Option(levelLabel(item), item.name)),
-    );
-    page.levelSelect.value = state.levelName;
-    page.levelSelect.disabled = busy;
-    page.levelList.replaceChildren();
-
-    if (level?.custom) {
-      page.levelList.append(
-        make("p", "panel-text", "This level is written as an expression, so it cannot be changed here. Edit it in the Google Cloud console."),
-        make("code", "", level.custom.expr?.expression ?? ""),
-      );
-    }
-    if (several) {
-      const rule = level.basic.combiningFunction === "OR" ? "any of these conditions matches" : "all of these conditions match";
-      page.levelList.append(make("p", "panel-text", `A request gets in when ${rule}.`));
-    }
-    conditions.forEach((condition, index) => {
-      page.levelList.append(makeCondition(condition, index, several, busy));
+    const draftKey = `${level.name}:${index}`;
+    const form = make("form", "mini-add");
+    form.noValidate = true;
+    const input = make("input");
+    input.type = "text";
+    input.placeholder = "Add IP";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.disabled = busy;
+    input.value = state.drafts[draftKey] ?? "";
+    input.setAttribute("aria-label", `Addresses to add to ${levelLabel(level)}`);
+    input.addEventListener("input", () => {
+      state.drafts[draftKey] = input.value;
+    });
+    const add = make("button", "button button-small", "Add");
+    add.type = "submit";
+    add.disabled = busy;
+    form.append(input, add);
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      void addAddresses(level, index, draftKey);
     });
 
-    const chosen = Number(page.conditionSelect.value) || 0;
-    page.conditionSelect.replaceChildren(...conditions.map((_, index) => new Option(`Condition ${index + 1}`, String(index))));
-    page.conditionSelect.value = String(chosen < conditions.length ? chosen : 0);
-    page.conditionField.hidden = !several;
-    page.addressForm.hidden = !conditions.length;
-    lock(page.addressForm, busy);
-    document.querySelector('[data-refresh="level"]').disabled = busy;
+    line.append(tags, form);
+    return line;
+  }
+
+  function makeLevel(level, busy) {
+    const block = make("div", "level");
+    block.append(make("h3", "level-title", levelLabel(level)));
+    if (level.custom) {
+      block.append(
+        make("p", "hint", "Written as an expression, so it cannot be changed here. Edit it in the Google Cloud console."),
+        make("code", "", level.custom.expr?.expression ?? ""),
+      );
+      return block;
+    }
+    const conditions = level.basic?.conditions ?? [];
+    const several = conditions.length > 1;
+    if (several) {
+      const rule = level.basic.combiningFunction === "OR" ? "any of its conditions matches" : "all of its conditions match";
+      block.append(make("p", "hint", `A request passes this level when ${rule}.`));
+    }
+    conditions.forEach((condition, index) => {
+      block.append(makeCondition(level, condition, index, several, busy));
+    });
+    return block;
+  }
+
+  function renderLevels() {
+    const busy = state.busy.level;
+    const levels = [...(state.levels ?? [])].sort((first, second) => levelLabel(first).localeCompare(levelLabel(second)));
+    page.levelList.replaceChildren(...levels.map(level => makeLevel(level, busy)));
+    if (state.levels && !levels.length) {
+      page.levelList.append(make("p", "hint", "The policy has no access levels."));
+    }
   }
 
   const unitLabel = path => (path === "/" ? "/ (the whole organization)" : path);
@@ -649,7 +674,6 @@
   function renderUsers() {
     const busy = state.busy.users;
     const users = usersUnder(state.unitPath).sort((first, second) => first.primaryEmail.localeCompare(second.primaryEmail));
-    page.unitName.textContent = config.orgUnitPath;
     // before the units are loaded the select shows the unit from the config alone
     page.unitSelect.replaceChildren(
       ...(state.units ?? [state.unitPath]).map(
@@ -658,6 +682,10 @@
     );
     page.unitSelect.value = state.unitPath;
     page.unitSelect.disabled = busy;
+    page.unitNote.textContent =
+      state.unitPath === config.orgUnitPath
+        ? "The access levels are assigned to this unit."
+        : `The access levels are assigned to ${config.orgUnitPath}, this is another unit.`;
     page.usersList.replaceChildren();
     page.usersList.hidden = !state.users;
 
@@ -667,8 +695,35 @@
     for (const user of users) {
       page.usersList.append(makeUserRow(user, busy));
     }
-    lock(page.userForm, busy);
-    document.querySelector('[data-refresh="users"]').disabled = busy;
+    for (const control of page.userForm.elements) {
+      control.disabled = busy;
+    }
+  }
+
+  // one member of the group: the email and a remove button that asks once more before it acts
+  function makeMemberRow(member, busy) {
+    const key = `member:${member.id}`;
+    const row = make("li", "row");
+    const main = make("div", "row-main");
+    main.append(make("span", "row-value", memberLabel(member)));
+    // owners, managers and nested groups are marked, a plain user is not
+    for (const mark of [member.role, member.type]) {
+      if (mark && mark !== "MEMBER" && mark !== "USER") {
+        main.append(make("span", "chip", mark.toLowerCase()));
+      }
+    }
+    const actions = make("div", "row-actions");
+    if (state.asking === key) {
+      row.classList.add("is-asking");
+      actions.append(
+        makeButton("Yes, remove", "button-danger", busy, () => removeMember(member)),
+        makeButton("Cancel", "button-quiet", busy, () => ask("")),
+      );
+    } else {
+      actions.append(makeButton("Remove", "button-quiet", busy, () => ask(key)));
+    }
+    row.append(main, actions);
+    return row;
   }
 
   function renderMembers() {
@@ -682,41 +737,36 @@
       page.membersList.append(make("li", "rows-empty", "The group has no members."));
     }
     for (const member of members) {
-      const content = [make("span", "row-value", memberLabel(member))];
-      // owners, managers and nested groups are marked, a plain user is not
-      for (const mark of [member.role, member.type]) {
-        if (mark && mark !== "MEMBER" && mark !== "USER") {
-          content.push(make("span", "chip", mark.toLowerCase()));
-        }
-      }
-      page.membersList.append(makeRow(`member:${member.id}`, content, busy, () => removeMember(member)));
+      page.membersList.append(makeMemberRow(member, busy));
     }
-    lock(page.memberForm, busy);
-    document.querySelector('[data-refresh="members"]').disabled = busy;
+    for (const control of page.memberForm.elements) {
+      control.disabled = busy;
+    }
   }
+
+  // the apps come from the config, google has no api for them, so they are drawn once
+  function renderApps() {
+    page.appsPart.hidden = !config.apps.length;
+    page.appsList.replaceChildren(...config.apps.map(name => make("li", "tag tag-plain", name)));
+    page.appsNote.textContent = `Copied by hand on ${config.assignmentCheckedOn}: Google does not let this page read it. The source is Admin console > Security > Context-Aware Access > Assign access levels.`;
+  }
+
+  const painters = { level: renderLevels, users: renderUsers, members: renderMembers };
 
   function render() {
     const signedIn = Boolean(state.token);
     page.signedOut.hidden = signedIn;
     page.signedIn.hidden = !signedIn;
-    // without a group in the config the page has no part about the group
-    page.membersSection.hidden = !config.groupEmail;
-    renderLevel();
+    // without a group in the config the board has no part about the group
+    page.membersPart.hidden = !config.groupEmail;
+    renderLevels();
     renderUsers();
     renderMembers();
   }
 
-  const loaders = { level: loadLevel, users: loadUsers, members: loadMembers };
-  for (const button of document.querySelectorAll("[data-refresh]")) {
-    button.addEventListener("click", () => void loaders[button.dataset.refresh]());
-  }
   page.signIn.addEventListener("click", signIn);
   page.signOut.addEventListener("click", signOut);
-  page.levelSelect.addEventListener("change", chooseLevel);
-  page.addressForm.addEventListener("submit", event => {
-    event.preventDefault();
-    void addAddress();
-  });
+  page.refresh.addEventListener("click", loadAll);
   page.unitSelect.addEventListener("change", chooseUnit);
   page.userForm.addEventListener("submit", event => {
     event.preventDefault();
@@ -733,5 +783,6 @@
     page.setup.hidden = false;
     page.signIn.disabled = true;
   }
+  renderApps();
   render();
 })();
