@@ -1,5 +1,6 @@
 // proxy access tool
-// shows who is in the google group and which addresses the access level lets in, and changes both
+// shows which addresses the access levels let in and, when a group is set, who is in the google
+// group, and changes both
 // everything runs in the browser: google sign-in gives an access token, the token stays in memory
 // and goes only to the two google apis below
 (() => {
@@ -9,24 +10,24 @@
   // none of them is a secret: the page is public, and so are they
   const config = {
     // oauth client id of the type "Web application"
-    clientId: "",
-    // email of the google group that opens the work apps
+    clientId: "556854096886-7v3li8qdv6qt2duv9h9n1o89ddp186oe.apps.googleusercontent.com",
+    // email of the google group that opens the work apps. leave it empty when there is no such
+    // group: the page then shows the access levels only and does not ask for the group permission
     groupEmail: "",
-    // number of the access policy
-    policyId: "",
-    // short name of the access level in the policy, not its title
-    accessLevelName: "",
+    // number of the access policy, the page lists the access levels of this policy
+    policyId: "78929297567",
     // the "User email" field starts with this email
     defaultUserEmail: "john@pp-testing.com",
   };
 
+  // the access levels need the wide cloud scope, google has no narrower one for them
   const scopes = [
-    "https://www.googleapis.com/auth/admin.directory.group.member",
     "https://www.googleapis.com/auth/cloud-platform",
+    ...(config.groupEmail ? ["https://www.googleapis.com/auth/admin.directory.group.member"] : []),
   ];
   const membersUrl = `https://admin.googleapis.com/admin/directory/v1/groups/${encodeURIComponent(config.groupEmail)}/members`;
   const accessApi = "https://accesscontextmanager.googleapis.com/v1";
-  const levelUrl = `${accessApi}/accessPolicies/${encodeURIComponent(config.policyId)}/accessLevels/${encodeURIComponent(config.accessLevelName)}`;
+  const levelsUrl = `${accessApi}/accessPolicies/${encodeURIComponent(config.policyId)}/accessLevels`;
 
   // what a condition of the level may check besides the address
   const otherChecks = {
@@ -40,8 +41,13 @@
   const state = {
     // google access token, it lives in this variable only and is gone when the page is closed
     token: "",
-    // the access level and the group members as google sent them, undefined until loaded
+    // the access levels of the policy, undefined until loaded
+    levels: undefined,
+    // the level chosen on the page: its full name "accessPolicies/1/accessLevels/name", and the
+    // level itself as google sent it
+    levelName: "",
     level: undefined,
+    // the group members as google sent them, undefined until loaded
     members: undefined,
     // key of the row that asks "remove?" now
     asking: "",
@@ -57,12 +63,13 @@
     signedIn: document.querySelector("[data-signed-in]"),
     signIn: document.querySelector("[data-sign-in]"),
     signOut: document.querySelector("[data-sign-out]"),
-    levelTitle: document.querySelector("[data-level-title]"),
+    levelSelect: document.querySelector("[data-level-select]"),
     levelList: document.querySelector("[data-level-list]"),
     addressForm: document.querySelector("[data-address-form]"),
     addressInput: document.querySelector("[data-address-input]"),
     conditionField: document.querySelector("[data-condition-field]"),
     conditionSelect: document.querySelector("[data-condition-select]"),
+    membersSection: document.querySelector("[data-members-section]"),
     groupName: document.querySelector("[data-group-name]"),
     membersList: document.querySelector("[data-members-list]"),
     memberForm: document.querySelector("[data-member-form]"),
@@ -105,6 +112,18 @@
       throw failure(`Google answers ${code}: ${reason}`, response.status);
     }
     return data;
+  }
+
+  // google sends a long list in pages, this reads all of them. the url must have a query already
+  async function fetchAll(url, listName) {
+    const items = [];
+    let pageToken = "";
+    do {
+      const data = await callGoogle(pageToken ? `${url}&pageToken=${encodeURIComponent(pageToken)}` : url);
+      items.push(...(data[listName] ?? []));
+      pageToken = data.nextPageToken ?? "";
+    } while (pageToken);
+    return items;
   }
 
   // runs one action of a section: locks its buttons, shows the progress, then the result or the
@@ -162,13 +181,15 @@
       return;
     }
     if (!window.google.accounts.oauth2.hasGrantedAllScopes(response, ...scopes)) {
-      showStatus("auth", "bad", "Google gave only a part of the permissions. Sign in again and leave both boxes ticked.");
+      showStatus("auth", "bad", "Google gave only a part of the permissions. Sign in again and leave every box ticked.");
       return;
     }
     state.token = response.access_token;
     render();
     void loadLevel();
-    void loadMembers();
+    if (config.groupEmail) {
+      void loadMembers();
+    }
   }
 
   function onSignInError(error) {
@@ -189,6 +210,7 @@
   function endSession(message) {
     session++;
     state.token = "";
+    state.levels = undefined;
     state.level = undefined;
     state.members = undefined;
     state.asking = "";
@@ -201,10 +223,33 @@
 
   // access level
 
+  const levelUrl = () => `${accessApi}/${state.levelName}`;
+  const levelLabel = level => level.title || level.name.split("/").pop();
+
+  // reads the list of levels, and the chosen level again when there is one
   const loadLevel = () =>
-    work("level", "Loading the access level...", async () => {
-      state.level = await callGoogle(levelUrl);
+    work("level", "Loading the access levels...", async () => {
+      state.levels = await fetchAll(`${levelsUrl}?pageSize=100`, "accessLevels");
+      if (!state.levels.some(level => level.name === state.levelName)) {
+        state.levelName = "";
+      }
+      state.level = state.levelName ? await callGoogle(levelUrl()) : undefined;
     });
+
+  // nothing is chosen at the start: the levels may belong to different environments, so the
+  // admin picks the one to look at
+  function chooseLevel() {
+    state.levelName = page.levelSelect.value;
+    state.level = undefined;
+    if (!state.levelName) {
+      showStatus("level", "", "");
+      render();
+      return;
+    }
+    void work("level", "Loading the access level...", async () => {
+      state.level = await callGoogle(levelUrl());
+    });
+  }
 
   // the access level api answers with a long-running operation, the change is real only when
   // the operation is done
@@ -225,8 +270,9 @@
   // changes the addresses of one condition. the api replaces the whole condition list, so the
   // level is read again first and everything else in it goes back as it was
   function changeAddresses(index, change, doneText) {
+    const url = levelUrl();
     return work("level", "Saving. Google needs a few seconds to apply the change...", async () => {
-      const fresh = await callGoogle(levelUrl);
+      const fresh = await callGoogle(url);
       if (JSON.stringify(fresh.basic) !== JSON.stringify(state.level.basic)) {
         state.level = fresh;
         throw failure("The access level was changed somewhere else after this page loaded it. The list is up to date now, check it and repeat.");
@@ -234,12 +280,12 @@
       const conditions = fresh.basic.conditions.map((condition, at) =>
         at === index ? { ...condition, ipSubnetworks: change(condition.ipSubnetworks ?? []) } : condition,
       );
-      const operation = await callGoogle(`${levelUrl}?updateMask=basic.conditions`, {
+      const operation = await callGoogle(`${url}?updateMask=basic.conditions`, {
         method: "PATCH",
         body: { basic: { conditions } },
       });
       await waitFor(operation);
-      state.level = await callGoogle(levelUrl);
+      state.level = await callGoogle(url);
       return doneText;
     });
   }
@@ -290,18 +336,7 @@
 
   // group members
 
-  // google sends the members in pages
-  async function fetchMembers() {
-    const members = [];
-    let pageToken = "";
-    do {
-      const next = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
-      const data = await callGoogle(`${membersUrl}?maxResults=200${next}`);
-      members.push(...(data.members ?? []));
-      pageToken = data.nextPageToken ?? "";
-    } while (pageToken);
-    return members;
-  }
+  const fetchMembers = () => fetchAll(`${membersUrl}?maxResults=200`, "members");
 
   const loadMembers = () =>
     work("members", "Loading the group members...", async () => {
@@ -439,7 +474,13 @@
     const level = state.level;
     const conditions = level?.basic?.conditions ?? [];
     const several = conditions.length > 1;
-    page.levelTitle.textContent = level?.title ? `${level.title} (${config.accessLevelName})` : config.accessLevelName;
+    const levels = [...(state.levels ?? [])].sort((first, second) => levelLabel(first).localeCompare(levelLabel(second)));
+    page.levelSelect.replaceChildren(
+      new Option(levels.length ? "Choose an access level" : "No access levels", ""),
+      ...levels.map(item => new Option(levelLabel(item), item.name)),
+    );
+    page.levelSelect.value = state.levelName;
+    page.levelSelect.disabled = busy;
     page.levelList.replaceChildren();
 
     if (level?.custom) {
@@ -493,6 +534,8 @@
     const signedIn = Boolean(state.token);
     page.signedOut.hidden = signedIn;
     page.signedIn.hidden = !signedIn;
+    // without a group in the config the page is about the access levels only
+    page.membersSection.hidden = !config.groupEmail;
     renderLevel();
     renderMembers();
   }
@@ -503,6 +546,7 @@
   }
   page.signIn.addEventListener("click", signIn);
   page.signOut.addEventListener("click", signOut);
+  page.levelSelect.addEventListener("change", chooseLevel);
   page.addressForm.addEventListener("submit", event => {
     event.preventDefault();
     void addAddress();
@@ -512,7 +556,7 @@
     addMember();
   });
 
-  const missing = ["clientId", "groupEmail", "policyId", "accessLevelName"].filter(name => !config[name]);
+  const missing = ["clientId", "policyId"].filter(name => !config[name]);
   if (missing.length) {
     page.setup.textContent = `This page is not set up yet. Fill in ${missing.join(", ")} at the top of public/tool-proxy-access/proxy-access.js, the README tells where to get them.`;
     page.setup.hidden = false;

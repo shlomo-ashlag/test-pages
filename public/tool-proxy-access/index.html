@@ -12,7 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>Proxy access · Test Pages</title>
-    <meta name="description" content="Shows and changes who may open the work apps through the QA proxy." />
+    <meta name="description" content="Shows and changes the addresses that may open the work apps through the QA proxy." />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/site.css" />
     <script src="https://accounts.google.com/gsi/client" async></script>
@@ -44,9 +44,9 @@
         </div>
         <h1>Proxy access</h1>
         <p class="lead">
-          The work apps open through the QA proxy for the members of one Google group, from the
-          addresses in one access level. This page shows both lists and lets you change them. It
-          talks to Google straight from your browser, with your own admin account.
+          The work apps open through the QA proxy only from the addresses that an access level
+          lets in. This page shows the addresses of each access level and lets you change them.
+          It talks to Google straight from your browser, with your own admin account.
         </p>
       </section>
 
@@ -55,8 +55,8 @@
       <section class="panel" data-signed-out aria-labelledby="sign-in-title">
         <h2 id="sign-in-title">Sign in</h2>
         <p class="panel-text">
-          Use a Google Workspace account that may manage the group and the access level. Google
-          asks for two permissions, the page needs both.
+          Use a Google Workspace account that may manage the access levels. Google asks for the
+          permissions the page needs, leave every box ticked.
         </p>
         <button class="button" type="button" data-sign-in>Sign in with Google Workspace</button>
         <p class="status" data-status="auth" role="status"></p>
@@ -72,14 +72,16 @@
           <div class="section-head">
             <div>
               <h2 id="level-title">Proxy addresses</h2>
-              <p class="section-note">
-                Requests from these addresses pass the access level <strong data-level-title></strong>.
-              </p>
+              <p class="section-note">Requests from these addresses pass the chosen access level.</p>
             </div>
             <button class="button button-quiet button-small" type="button" data-refresh="level">Refresh</button>
           </div>
           <div class="panel">
-            <div data-level-list></div>
+            <div class="field">
+              <label for="access-level">Access level</label>
+              <select id="access-level" data-level-select></select>
+            </div>
+            <div class="level-list" data-level-list></div>
             <form class="add" data-address-form novalidate hidden>
               <div class="field">
                 <label for="proxy-ip">Proxy IP</label>
@@ -95,7 +97,7 @@
           </div>
         </section>
 
-        <section class="section" aria-labelledby="members-title">
+        <section class="section" aria-labelledby="members-title" data-members-section hidden>
           <div class="section-head">
             <div>
               <h2 id="members-title">Group members</h2>

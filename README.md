@@ -12,7 +12,7 @@ Static pages for the QA team: test pages for checking the browser extension by h
 
 | Page | What it does |
 | --- | --- |
-| `/tool-proxy-access/` | Shows and changes who may open the work apps through the QA proxy: the members of a Google group and the addresses in an access level. |
+| `/tool-proxy-access/` | Shows and changes which addresses may open the work apps through the QA proxy: the addresses in the access levels and, when a group is set, the members of a Google group. |
 
 ## Run locally
 
@@ -36,12 +36,12 @@ A tool is added the same way: the folder is `public/tool-<name>/`, and its card 
 
 ## Set up the proxy access tool
 
-The tool has no backend. The person who uses it signs in with Google in the browser, and the browser calls the Admin SDK and the Access Context Manager API with that sign-in.
+The tool has no backend. The person who uses it signs in with Google in the browser, and the browser calls the Access Context Manager API with that sign-in, and the Admin SDK when a group is set.
 
-In the Google Cloud console, in one project of your organization:
+In the Google Cloud console, in one project of your organization (now it is the project **QA Tools**):
 
-1. Enable **Admin SDK API** and **Access Context Manager API**.
-2. Set the OAuth consent screen to **Internal**, so only accounts of your organization can sign in. Add the scopes `https://www.googleapis.com/auth/admin.directory.group.member` and `https://www.googleapis.com/auth/cloud-platform`.
+1. Enable **Access Context Manager API**, and **Admin SDK API** for the group.
+2. Set the OAuth consent screen to **Internal**, so only accounts of your organization can sign in.
 3. Create an OAuth client ID of the type **Web application**. In **Authorized JavaScript origins** add the site address, for example `https://<app>.ondigitalocean.app`, and `http://localhost:8080` for the local server. An origin has no path and no slash at the end. Redirect URIs are not needed.
 
 Then fill in `config` at the top of `public/tool-proxy-access/proxy-access.js`:
@@ -49,11 +49,16 @@ Then fill in `config` at the top of `public/tool-proxy-access/proxy-access.js`:
 | Value | Where it comes from |
 | --- | --- |
 | `clientId` | The client ID from step 3. |
-| `groupEmail` | The email of the Google group. |
-| `policyId` | The number that `gcloud access-context-manager policies list` shows. |
-| `accessLevelName` | The short name of the level from `gcloud access-context-manager levels list --policy=<policyId>`, not its title. |
+| `groupEmail` | The email of the Google group that opens the work apps. Leave it empty when there is no such group: the page then shows the access levels only. |
+| `policyId` | The number that `gcloud access-context-manager policies list --organization=<organization id>` shows. The page lists the access levels of this policy, and you choose one there. |
 
-The account that signs in needs the Groups Admin role in Google Workspace and the Access Context Manager Admin role (`roles/accesscontextmanager.policyAdmin`) on the organization in Google Cloud.
+The account that signs in needs the Access Context Manager Admin role (`roles/accesscontextmanager.policyAdmin`) on the organization in Google Cloud. A Google Workspace super admin does not have it until it is given:
+
+```bash
+gcloud organizations add-iam-policy-binding <organization id> --member="user:<email>" --role="roles/accesscontextmanager.policyAdmin"
+```
+
+With a group the account also needs the Groups Admin role in Google Workspace.
 
 Keep in mind:
 

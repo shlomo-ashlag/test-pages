@@ -770,6 +770,14 @@ code {
   background: var(--bad);
 }
 
+.level-list {
+  margin-top: 16px;
+}
+
+.level-list:empty {
+  display: none;
+}
+
 .group + .group {
   margin-top: 22px;
   padding-top: 20px;
