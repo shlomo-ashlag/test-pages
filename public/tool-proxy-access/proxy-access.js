@@ -19,8 +19,6 @@
     // path of the organizational unit the access levels are assigned to in the admin console.
     // the page cannot read that assignment from google, so it is written here
     orgUnitPath: "/Users",
-    // the "User email" fields start with this email
-    defaultUserEmail: "john@pp-testing.com",
   };
 
   // the access levels need the wide cloud scope, google has no narrower one for them.
@@ -601,7 +599,7 @@
 
   const unitLabel = path => (path === "/" ? "/ (the whole organization)" : path);
 
-  // one user: the email, and a move button that opens the choice of the unit
+  // one user: the email, and a button that opens the choice of another unit
   function makeUserRow(user, busy) {
     const key = `user:${user.id}`;
     const row = make("li", "row");
@@ -638,7 +636,7 @@
       );
     } else {
       actions.append(
-        makeButton("Move", "button-quiet", busy, () => {
+        makeButton("Change unit", "button-quiet", busy, () => {
           state.moveTo = "";
           ask(key);
         }),
@@ -735,7 +733,5 @@
     page.setup.hidden = false;
     page.signIn.disabled = true;
   }
-  page.userInput.value = config.defaultUserEmail;
-  page.memberInput.value = config.defaultUserEmail;
   render();
 })();
