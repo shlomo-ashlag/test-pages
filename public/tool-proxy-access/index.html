@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- this page holds a google admin token, so it may load only its own files and the google
+         sign-in script, and may talk only to google.
+         'unsafe-inline' is for styles only: the google script adds a style element of its own -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/ https://oauth2.googleapis.com https://admin.googleapis.com https://accesscontextmanager.googleapis.com; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Proxy access · Test Pages</title>
+    <meta name="description" content="Shows and changes who may open the work apps through the QA proxy." />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script src="https://accounts.google.com/gsi/client" async></script>
+    <script src="/tool-proxy-access/proxy-access.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/favicon.svg" alt="" />
+          Test Pages
+        </a>
+        <span class="topbar-note">Manual tests and QA tools</span>
+      </div>
+    </header>
+
+    <main class="wrap tool">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Proxy access</span>
+      </nav>
+
+      <section class="page-head">
+        <div class="chips">
+          <span class="chip chip-accent">Tool</span>
+          <span class="chip">Google Workspace</span>
+          <span class="chip">Admins</span>
+        </div>
+        <h1>Proxy access</h1>
+        <p class="lead">
+          The work apps open through the QA proxy for the members of one Google group, from the
+          addresses in one access level. This page shows both lists and lets you change them. It
+          talks to Google straight from your browser, with your own admin account.
+        </p>
+      </section>
+
+      <p class="notice" data-setup hidden></p>
+
+      <section class="panel" data-signed-out aria-labelledby="sign-in-title">
+        <h2 id="sign-in-title">Sign in</h2>
+        <p class="panel-text">
+          Use a Google Workspace account that may manage the group and the access level. Google
+          asks for two permissions, the page needs both.
+        </p>
+        <button class="button" type="button" data-sign-in>Sign in with Google Workspace</button>
+        <p class="status" data-status="auth" role="status"></p>
+      </section>
+
+      <div data-signed-in hidden>
+        <div class="panel session">
+          <p>You are signed in to Google. The sign-in lasts about an hour.</p>
+          <button class="button button-quiet button-small" type="button" data-sign-out>Sign out</button>
+        </div>
+
+        <section class="section" aria-labelledby="level-title">
+          <div class="section-head">
+            <div>
+              <h2 id="level-title">Proxy addresses</h2>
+              <p class="section-note">
+                Requests from these addresses pass the access level <strong data-level-title></strong>.
+              </p>
+            </div>
+            <button class="button button-quiet button-small" type="button" data-refresh="level">Refresh</button>
+          </div>
+          <div class="panel">
+            <div data-level-list></div>
+            <form class="add" data-address-form novalidate hidden>
+              <div class="field">
+                <label for="proxy-ip">Proxy IP</label>
+                <input id="proxy-ip" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="203.0.113.10" data-address-input />
+              </div>
+              <div class="field field-narrow" data-condition-field hidden>
+                <label for="proxy-condition">Add to</label>
+                <select id="proxy-condition" data-condition-select></select>
+              </div>
+              <button class="button" type="submit">Add address</button>
+            </form>
+            <p class="status" data-status="level" role="status"></p>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="members-title">
+          <div class="section-head">
+            <div>
+              <h2 id="members-title">Group members</h2>
+              <p class="section-note">
+                Members of the group <strong data-group-name></strong> may open the work apps.
+              </p>
+            </div>
+            <button class="button button-quiet button-small" type="button" data-refresh="members">Refresh</button>
+          </div>
+          <div class="panel">
+            <ul class="rows" data-members-list hidden></ul>
+            <form class="add" data-member-form novalidate>
+              <div class="field">
+                <label for="member-email">User email</label>
+                <input id="member-email" type="email" autocomplete="off" spellcheck="false" placeholder="name@example.com" data-member-input />
+              </div>
+              <button class="button" type="submit">Add member</button>
+            </form>
+            <p class="status" data-status="members" role="status"></p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <a href="/">Home</a>
+        <span>Static files, no backend.</span>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-/* shared look for every test page */
+/* shared look for every page */
 
 :root {
   color-scheme: light dark;
@@ -81,6 +81,11 @@ body {
 
 main {
   flex: 1;
+}
+
+/* a class that sets display must not show a hidden element */
+[hidden] {
+  display: none !important;
 }
 
 a {
@@ -686,11 +691,14 @@ code {
   gap: 8px;
   height: 40px;
   padding: 0 16px;
+  border: 0;
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: #fff;
+  font: inherit;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .button:hover {
@@ -703,6 +711,194 @@ code {
   .button:hover {
     color: #0d0f14;
   }
+}
+
+/* tool pages */
+
+.tool {
+  padding-bottom: 56px;
+}
+
+.tool .section {
+  padding: 28px 0 0;
+}
+
+.panel-text {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.button-small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.button-quiet,
+.button-quiet:hover {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.button-quiet:hover {
+  background: var(--surface-muted);
+}
+
+.button-danger,
+.button-danger:hover {
+  background: var(--bad);
+}
+
+.group + .group {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.group-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.group-note {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-height: 50px;
+  padding: 8px 14px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.row.is-asking {
+  background: var(--bad-soft);
+}
+
+.row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.rows-empty {
+  padding: 12px 14px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.field {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 4px;
+  max-width: 360px;
+}
+
+.field-narrow {
+  flex: 0 1 170px;
+}
+
+.field label {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.field input:disabled,
+.field select:disabled {
+  opacity: 0.6;
+}
+
+.status {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 14.5px;
+  overflow-wrap: anywhere;
+}
+
+.status:empty {
+  display: none;
+}
+
+.status.is-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.status.is-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
 @media (max-width: 760px) {
