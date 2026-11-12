@@ -51,11 +51,9 @@ Then fill in `config` at the top of `public/tool-proxy-access/proxy-access.js`:
 | `clientId` | The client ID from step 3. |
 | `policyId` | The number that `gcloud access-context-manager policies list --organization=<organization id>` shows. The page shows all the access levels of this policy. |
 | `orgUnitPath` | The path of the organizational unit the access levels are assigned to. |
-| `apps` | The apps the access levels are assigned to for that unit. |
-| `assignmentCheckedOn` | The day `orgUnitPath` and `apps` were last compared with the Admin console. |
 | `groupEmail` | The email of a Google group to manage too. Leave it empty when there is no such group: the page then has no part about the group. |
 
-Google has no API that tells where the access levels are assigned, so `orgUnitPath` and `apps` are copied by hand from Admin console > Security > Context-Aware Access > Assign access levels. Update them and `assignmentCheckedOn` when the assignment changes there, or the page will show an old picture.
+Google has no API that tells where the access levels are assigned. So `orgUnitPath` is copied by hand from Admin console > Security > Context-Aware Access > Assign access levels, and the apps are not shown at all: the page has a link to that place in the Admin console, where they are changed.
 
 The account that signs in needs the Access Context Manager Admin role (`roles/accesscontextmanager.policyAdmin`) on the organization in Google Cloud. A Google Workspace super admin does not have it until it is given:
 

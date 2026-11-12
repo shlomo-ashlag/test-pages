@@ -1,7 +1,7 @@
 // proxy access tool
 // one board that answers: who may open the work apps through the qa proxy, which apps, and from
-// which addresses. the users of the unit and the addresses of the access levels can be changed
-// here, the apps are listed from the config
+// which addresses. the users of the unit and the addresses of the access levels are changed
+// here, the apps are changed in the google admin console, the board links to it
 // everything runs in the browser: google sign-in gives an access token, the token stays in memory
 // and goes only to the google apis below
 (() => {
@@ -14,14 +14,10 @@
     clientId: "556854096886-7v3li8qdv6qt2duv9h9n1o89ddp186oe.apps.googleusercontent.com",
     // number of the access policy, the page shows all the access levels of this policy
     policyId: "78929297567",
-    // google gives no api to read where the access levels are assigned, so the next three values
-    // are copied by hand from: admin console > security > context-aware access > assign access levels
-    // path of the organizational unit the access levels are assigned to
+    // path of the organizational unit the access levels are assigned to. google gives no api to
+    // read the assignment, so it is copied by hand from the admin console. the apps of the
+    // assignment are not kept here at all, the page links to the admin console for them
     orgUnitPath: "/Users",
-    // the apps they are assigned to for that unit
-    apps: ["Calendar", "Drive and Docs", "FileCloud"],
-    // the day the two values above were last compared with the admin console
-    assignmentCheckedOn: "2026-11-12",
     // email of a google group to manage too. empty: the page has no part about a group
     groupEmail: "",
   };
@@ -86,9 +82,6 @@
     usersList: document.querySelector("[data-users-list]"),
     userForm: document.querySelector("[data-user-form]"),
     userInput: document.querySelector("[data-user-input]"),
-    appsPart: document.querySelector("[data-apps-part]"),
-    appsList: document.querySelector("[data-apps-list]"),
-    appsNote: document.querySelector("[data-apps-note]"),
     levelList: document.querySelector("[data-level-list]"),
     membersPart: document.querySelector("[data-members-part]"),
     groupName: document.querySelector("[data-group-name]"),
@@ -744,13 +737,6 @@
     }
   }
 
-  // the apps come from the config, google has no api for them, so they are drawn once
-  function renderApps() {
-    page.appsPart.hidden = !config.apps.length;
-    page.appsList.replaceChildren(...config.apps.map(name => make("li", "tag tag-plain", name)));
-    page.appsNote.textContent = `Copied by hand on ${config.assignmentCheckedOn}: Google does not let this page read it. The source is Admin console > Security > Context-Aware Access > Assign access levels.`;
-  }
-
   const painters = { level: renderLevels, users: renderUsers, members: renderMembers };
 
   function render() {
@@ -783,6 +769,5 @@
     page.setup.hidden = false;
     page.signIn.disabled = true;
   }
-  renderApps();
   render();
 })();

@@ -909,10 +909,6 @@ code {
   font-size: 13.5px;
 }
 
-.tag-plain {
-  padding: 0 10px;
-}
-
 .tag.is-asking {
   gap: 6px;
   padding: 0 4px 0 10px;
