@@ -3,8 +3,12 @@
 # update the app:  doctl apps update <app id> --spec .do/app.yaml
 # serve.js reads this file too, so the local server answers like the deployed site
 name: test-pages
+region: fra
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
 static_sites:
-  - name: site
+  - name: test-pages-public
     environment_slug: html
     github:
       repo: shlomo-ashlag/test-pages
@@ -20,29 +24,29 @@ ingress:
         path:
           prefix: /test-download-pdf/cgi-bin/show_temp.pl
       component:
-        name: site
+        name: test-pages-public
         rewrite: /test-download-pdf/files/sample.pdf
     - match:
         path:
           prefix: /test-download-pdf/documents/6006422
       component:
-        name: site
+        name: test-pages-public
         rewrite: /test-download-pdf/files/sample.pdf
     - match:
         path:
           prefix: /test-download-pdf/cgi-bin/report.php
       component:
-        name: site
+        name: test-pages-public
         rewrite: /test-download-pdf/files/sample.pdf
     - match:
         path:
           prefix: /test-download-pdf/cgi-bin/get.pl
       component:
-        name: site
+        name: test-pages-public
         rewrite: /test-download-pdf/files/sample.bin
     # everything else is the site itself
     - match:
         path:
           prefix: /
       component:
-        name: site
+        name: test-pages-public
